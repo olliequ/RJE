@@ -15,17 +15,20 @@ async function validateEquipment(equipmentList, fieldMap, errors) {
 
 function validateColumns(equipmentList, fieldMap, errors) {
 
-    let headers = Object.keys(equipmentList[0]) // Column names in CSV.
+    let headers = Object.keys(equipmentList[0]) // [0] is the first row (not the headers) of the CSV; it's an obj tho. Extract the keys (column names).
     let keys = Array.from(fieldMap).map(arr => arr[0]); // All the potential (valid) fields for a CSV entry.
-    console.log(keys);
+    // console.log(keys);
 
     for (col = 0; col < headers.length; col++) {
-        // console.log(headers[col]);
         let field = fieldMap.get(headers[col]); // 'Not A Field' doesn't exist in the validatonMap, and so will print undefined.
+        // console.log(field); // An object of 5 keys.
+        // console.log(headers[col]); // Prints the CSV column name.
+
         if (field) { // If it exists:
             field.colIndex = col; // Actually modifies the map. So, `field` is pointing to the same memory address as the get map method. 
+        } else { // Else the provided CSV field isn't a valid one (not present in the validation map).
+            errors.push(new lineError("Unknown field is present in the equipment list.", headers[col], 'N/A'))
         }
-        // console.log(field);
     }
 
 
@@ -34,26 +37,22 @@ function validateColumns(equipmentList, fieldMap, errors) {
         // console.log(item); // Prints the key & value pairs existing in the hash map.
         if (item[1].isRequired && item[1].colIndex == null) { // If the item is a mandatory field yet the colIndex is null, throw an error.
             errors.push(new lineError("Required Column Missing", item[0], 'N/A'))
-        }
-
-        
+        }   
     }
-        // unknown field is present in the equipment list.
 }
 
 
 
 function validateData(equipmentList, fieldMap, errors) {
 
+    let counter = 1
     for (let equipment of equipmentList) {
-
-        let counter = 2
 
         for (const item of fieldMap[Symbol.iterator]()) {
 
-            let column = item[0];
-            let vStr = item[1].validationString;
-            let attr = equipment[column];
+            let column = item[0]; // Key of the KV pair (just a string in this case).
+            let vStr = item[1].validationString; // `validationString` property of the value item of the KV pair (field of an object in this case).
+            let attr = equipment[column]; // Actual field value for this specific row.
 
             if (!vStr) {
                 continue;
@@ -69,7 +68,7 @@ function validateData(equipmentList, fieldMap, errors) {
                 if (attr == '') {
                     errors.push(new lineError(` ${column} column cannot contain empty values`, attr, counter));
                 } else if (!reg.test(attr)) {
-                    errors.push(new lineError(`Invalid data for ${column}`, attr, counter));
+                    errors.push(new lineError(`--- Invalid data for ${column}`, attr, counter));
 
                     // If not required, but not empty, validate it 
                 } else if (!item[1].isRequired && (attr !== '')) {
@@ -88,7 +87,6 @@ function validateData(equipmentList, fieldMap, errors) {
             }
             
         }
-
         counter ++;
     }
 }
@@ -100,7 +98,7 @@ function validateUniqueKeys(equipmentList, fieldMap, errors) {
     let keyStrings = [];
 
     // Counter starts at 2 to compensate for excel line indexes
-    counter = 2;
+    let counter = 1;
 
     // Push keys to array
     for (let equipment of equipmentList) {
@@ -111,8 +109,8 @@ function validateUniqueKeys(equipmentList, fieldMap, errors) {
 
         key = key.toLocaleLowerCase().replace(/\s/g, '');
         keyStrings.push({ key, counter });
+        counter++
     }
-    counter++
 
     // Filter just duplicates
     const duplicates = keyStrings.filter((key, index, self) =>
